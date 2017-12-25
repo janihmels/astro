@@ -1,10 +1,10 @@
 $(document).ready(function() {
 	console.log("Clever & smart");
 
-	let entries = [
-		'sat-info-title',
-		'sat-intl-des',
-		'sat-type',
+	let dataEntries = [
+//		'sat-info-title',
+//		'sat-intl-des',
+//		'sat-type',
 		'sat-apogee',
 		'sat-perigee',
 		'sat-inclination',
@@ -12,21 +12,39 @@ $(document).ready(function() {
 		'sat-velocity',
 		'sat-period'
 	];
+
+	let startEntries = [
+		'sat-info-title',
+		'sat-intl-des',
+		'sat-type',
+		'sat-period'
+	];
 	
 	chrome.runtime.onMessage.addListener(
 		function(request, sender, sendResponse) {
+
 			if (request.request == "pull data") {
-				console.log("message received");
 				let data=[];
-				entries.forEach( entry => {
+				dataEntries.forEach( entry => {
 					data.push( {
 						category: entry,
 						content: $('#'+entry).text()
 					});
-				});
-				console.log(entries);
+				});				
 				sendResponse({data});
 			}
+
+			if (request.request == "init data") {
+				let data=[];
+				startEntries.forEach( entry => {
+					data.push( {
+						category: entry,
+						content: $('#'+entry).text()
+					});
+				});				
+				sendResponse({data, period: parseFloat($("#sat-period").text())});
+			}
+			
 		}
 	);
 });

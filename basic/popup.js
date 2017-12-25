@@ -1,7 +1,3 @@
-// Copyright (c) 2014 The Chromium Authors. All rights reserved.
-// Use of this source code is governed by a BSD-style license that can be
-// found in the LICENSE file.
-
 function getCurrentTabUrl(callback) {
   // Query filter to be passed to chrome.tabs.query - see
   // https://developer.chrome.com/extensions/tabs#method-query
@@ -41,64 +37,67 @@ function getCurrentTabUrl(callback) {
   // alert(url); // Shows "undefined", because chrome.tabs.query is async.
 }
 
-function changeBackgroundColor(color) {
-  var script = 'document.body.style.backgroundColor="' + color + '";';
-  // See https://developer.chrome.com/extensions/tabs#method-executeScript.
-  // chrome.tabs.executeScript allows us to programmatically inject JavaScript
-  // into a page. Since we omit the optional first argument "tabId", the script
-  // is inserted into the active tab of the current window, which serves as the
-  // default.
-  chrome.tabs.executeScript({
-    code: script
-  });
-}
-function getSavedBackgroundColor(url, callback) {
-  // See https://developer.chrome.com/apps/storage#type-StorageArea. We check
-  // for chrome.runtime.lastError to ensure correctness even when the API call
-  // fails.
-  chrome.storage.sync.get(url, (items) => {
-    callback(chrome.runtime.lastError ? null : items[url]);
-  });
-}
-function saveBackgroundColor(url, color) {
-  var items = {};
-  items[url] = color;
-  // See https://developer.chrome.com/apps/storage#type-StorageArea. We omit the
-  chrome.storage.sync.set(items);
-}
+let timeInterval, timer, counter, countdown;
 
 $(document).ready(function(){
-	$("#test").text('This is the text');
-	$("#take-reading").click(start);
+	counter=0;
+	chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
+		chrome.tabs.sendMessage(tabs[0].id, {request: "init data"}, function(response) {
+			let defaultValue = Math.floor(response.period);
+			let html='';
+			html+='<h3>';
+			response.data.forEach(
+				entry => {
+					html+=entry.content+" | ";
+				}
+			);		
+			html+='</h3>';
+			html+='<h3>Interval (sec): <input id="interval-value" type="text" value="'+defaultValue;
+			html+='">&nbsp;<button id="take-reading">Start</button></h3>';
+			$("#info-area").html(html);
+			$("#take-reading").click(start);
+		});
+	});
 });
 
-let timer;
-const start = () => {
-	timer=setInterval(takeReading,3000);
+const start = ( ) => {
+	timeInterval = 1000*parseFloat( $("#interval-value").val() );
+
+	initCountdown();
+	setInterval( buttonCountdown, 1000 );
+	
+	let timer = setInterval( takeReading, timeInterval );
+	takeReading();
 };
 
+const buttonCountdown = () => {
+	$("#take-reading").text( (countdown--)+'' );
+}
+
+const initCountdown = () => {
+	countdown=Math.ceil(timeInterval/1000);
+	buttonCountdown();	
+}
+
 const takeReading = () => {
-	console.log('-------------------------------------');
+	initCountdown();
+	counter++;
 	chrome.tabs.query({active: true, currentWindow: true}, function(tabs) {
 		chrome.tabs.sendMessage(tabs[0].id, {request: "pull data"}, function(response) {
-			console.log(response);
+			const thisDate= new Date();
+			const timeStr = thisDate.getHours()+":"+thisDate.getMinutes()+":"+thisDate.getSeconds();
+
+			let html='';
+			html+="<tr><td>"+counter+"</td><td>"+timeStr+"</td>";
+
+			response.data.forEach(
+				entry => {
+					html+="<td>"+entry.content+"</td>";
+				}
+			);
+
+			html+="</tr>";
+			$("#data-table").append(html);
 		});
 	});
 };
-/*document.addEventListener('DOMContentLoaded', () => {
-  getCurrentTabUrl((url) => {
-    var dropdown = document.getElementById('dropdown');
-
-    getSavedBackgroundColor(url, (savedColor) => {
-      if (savedColor) {
-        changeBackgroundColor(savedColor);
-        dropdown.value = savedColor;
-      }
-    });
-
-    dropdown.addEventListener('change', () => {
-      changeBackgroundColor(dropdown.value);
-      saveBackgroundColor(url, dropdown.value);
-    });
-  });
-});*/
